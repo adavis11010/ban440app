@@ -19,14 +19,15 @@ def load_model():
 
 model = load_model()
 
-st.title("📈 Cloud‑Hosted Model Prediction App")
+st.title("Course Cast")
 st.write("Enter values for the four features to generate a predicted percent.")
 
 # Inputs
-f1 = st.number_input("Feature 1", value=0.0)
-f2 = st.number_input("Feature 2", value=0.0)
-f3 = st.number_input("Feature 3", value=0.0)
-f4 = st.number_input("Feature 4", value=0.0)
+f1 = st.number_input("Previous Scores", value=0.0)
+f2 = st.number_input("Attendance Rate", value=0.0)
+f3 = st.number_input("Extracurricular Activities", value=0.0)
+f4 = st.number_input("hours studied", value=0.0)
+
 
 # Predict
 if st.button("Predict"):
