@@ -21,10 +21,10 @@ def load_model():
 model = load_model()
 
 FEATURES = [
+   "Hours Studied",
     "Previous Scores",
-    "Attendance Rate",
-    "Hours Studied",
-    "Extracurricular Activities"
+    "Extracurricular Activities",
+    "Attendance Rate"
 ]
 
 def preprocess(df: pd.DataFrame) -> pd.DataFrame:
@@ -75,8 +75,8 @@ if uploaded_file is not None:
     col2.metric("Not At-Risk", int((predictions == 0).sum()))
 
     st.dataframe(
-        df_results[["Previous Scores", "Attendance Rate", "Hours Studied",
-                    "Extracurricular Activities", "Risk Label", "Confidence"]],
+        df_results[["Hours Studied", "Previous Scores",
+                    "Extracurricular Activities", "Attendance Rate", "Risk Label", "Confidence"]],
         use_container_width=True
     )
 
