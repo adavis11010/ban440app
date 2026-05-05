@@ -16,7 +16,7 @@ def load_model():
     model_bytes = io.BytesIO(response.content)
     model = joblib.load(model_bytes)
     return model
-        return joblib.load("coursecast_model.pkl")
+    return joblib.load("coursecast_model.pkl")
 
 model = load_model()
 
