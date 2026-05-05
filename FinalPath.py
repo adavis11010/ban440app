@@ -86,8 +86,8 @@ if uploaded_file is not None:
         file_name="coursecast_predictions.csv",
         mime="text/csv"
     )
-    git init
+git init
 git add .
 git commit -m "initial deploy"
-git remote add origin https://github.com/adavis11010/ban440app.git
+git remote add origin https://github.com/yourusername/ban440app.git
 git push -u origin main
