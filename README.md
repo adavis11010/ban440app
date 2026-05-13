@@ -1,2 +1,2 @@
 # ban440app
-Data repository for web app project ideas.
+Data repository for Coursecast predictive model web app.
