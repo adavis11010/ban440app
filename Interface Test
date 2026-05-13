@@ -1,135 +1,88 @@
+"app.py"
 import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
 import requests
 import io
+st.set_page_config(page_title="CourseCast Model Predictor", layout="centered")
 
-# --- 1. Page Configuration & Custom CSS ---
-st.set_page_config(
-    page_title="CourseCast | Student Risk AI", 
-    page_icon="🎓", 
-    layout="wide"
-)
-
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f5f7f9;
-    }
-    .stMetric {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    </style>
-    """, unsafe_allow_stdio=True)
-
-# --- 2. Constants & Model Loading ---
 RAW_MODEL_URL = "https://raw.githubusercontent.com/adavis11010/ban440app/main/my_model.joblib"
-FEATURES = ["Hours Studied", "Previous Scores", "Extracurricular Activities", "Attendance Rate"]
 
 @st.cache_resource
 def load_model():
-    try:
-        response = requests.get(RAW_MODEL_URL)
-        response.raise_for_status()
-        return joblib.load(io.BytesIO(response.content))
-    except Exception as e:
-        st.error(f"Failed to load model from GitHub: {e}")
-        return None
+    response = requests.get(RAW_MODEL_URL)
+    response.raise_for_status()
+    model_bytes = io.BytesIO(response.content)
+    model = joblib.load(model_bytes)
+    return model
+    return joblib.load("coursecast_model.pkl")
 
 model = load_model()
 
+FEATURES = [
+   "Hours Studied",
+    "Previous Scores",
+    "Extracurricular Activities",
+    "Attendance Rate"
+]
+
 def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    # Handle case-insensitive mapping
-    if "Extracurricular Activities" in df.columns:
-        df["Extracurricular Activities"] = df["Extracurricular Activities"].astype(str).str.capitalize().map({"Yes": 1, "No": 0})
-    return df[FEATURES]
+    df["Extracurricular Activities"] = df["Extracurricular Activities"].map(
+        {"Yes": 1, "No": 0}
+    )
+    return df[FEATURES]   # drops all other columns automatically
 
-# --- 3. Sidebar Design ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3413/3413535.png", width=80)
-    st.title("CourseCast Admin")
-    st.info("Upload student performance data to identify individuals needing intervention.")
-    
-    st.divider()
-    st.subheader("Template")
-    # Provide a sample CSV for users
-    template_df = pd.DataFrame(columns=FEATURES)
-    template_csv = template_df.to_csv(index=False).encode('utf-8')
-    st.download_button("Download CSV Template", template_csv, "template.csv", "text/csv")
-
-# --- 4. Main Interface ---
-st.title("🎓 CourseCast Predictor")
-st.markdown("Use machine learning to flag **at-risk** students based on engagement and performance metrics.")
-
-# File Uploader in a nice container
-upload_container = st.container(border=True)
-uploaded_file = upload_container.file_uploader(
-    "Upload Student Data", 
+st.title("CourseCast")
+st.markdown("Upload a student CSV to flag who is **At-Risk** of failing.")
+# Inputs
+uploaded_file = st.file_uploader(
+    label="Drop your student CSV here",
     type=["csv"],
-    help="Required columns: Hours Studied, Previous Scores, Extracurricular Activities, Attendance Rate"
+    help="Must include: Previous Scores, Attendance Rate, Hours Studied, Extracurricular Activities"
 )
 
-if uploaded_file is not None and model is not None:
+if uploaded_file is not None:
+
     try:
         df_raw = pd.read_csv(uploaded_file)
-        
-        # Validation
-        missing = [col for col in FEATURES if col not in df_raw.columns]
-        if missing:
-            st.error(f"⚠️ Missing columns: {', '.join(missing)}")
-        else:
-            # Predictions
-            X = preprocess(df_raw)
-            predictions = model.predict(X)
-            probabilities = model.predict_proba(X)[:, 1]
-
-            df_results = df_raw.copy()
-            df_results["Risk Label"] = np.where(predictions == 1, "🔴 At-Risk", "🟢 Not At-Risk")
-            df_results["Confidence"] = (probabilities * 100).round(1).astype(str) + "%"
-
-            # --- 5. Dashboard Visuals ---
-            m1, m2, m3 = st.columns(3)
-            risk_count = int(predictions.sum())
-            total_count = len(df_results)
-            
-            m1.metric("Total Students", total_count)
-            m2.metric("At-Risk", risk_count, delta=f"{risk_count/total_count:.1%}", delta_color="inverse")
-            m3.metric("Healthy Status", total_count - risk_count)
-
-            # Tabs for organization
-            tab1, tab2 = st.tabs(["📋 Detailed Predictions", "📊 Summary Statistics"])
-            
-            with tab1:
-                # Color code the dataframe
-                def color_risk(val):
-                    color = '#ff4b4b' if 'At-Risk' in str(val) else '#09ab3b'
-                    return f'color: {color}; font-weight: bold'
-
-                st.dataframe(
-                    df_results.style.applymap(color_risk, subset=['Risk Label']),
-                    use_container_width=True
-                )
-                
-                st.download_button(
-                    label="📥 Download Results",
-                    data=df_results.to_csv(index=False).encode("utf-8"),
-                    file_name="coursecast_analysis.csv",
-                    mime="text/csv"
-                )
-
-            with tab2:
-                # Quick chart of average attendance vs risk
-                avg_attendance = df_results.groupby("Risk Label")["Attendance Rate"].mean()
-                st.subheader("Attendance Rate by Risk Status")
-                st.bar_chart(avg_attendance)
-
     except Exception as e:
-        st.error(f"Analysis Error: {e}")
+        st.error(f"Could not read file: {e}")
+        st.stop()
 
-elif model is None:
-    st.warning("Model failed to load. Please check the URL or your internet connection.")
+    missing = [col for col in FEATURES if col not in df_raw.columns]
+    if missing:
+        st.error(f"Missing required columns: {missing}")
+        st.stop()
+
+    try:
+        X = preprocess(df_raw)
+        predictions = model.predict(X)
+        probabilities = model.predict_proba(X)[:, 1]
+    except Exception as e:
+        st.error(f"Prediction error: {e}")
+        st.stop()
+
+    df_results = df_raw.copy()
+    df_results["Risk Label"] = np.where(predictions == 1, "At-Risk", "Not At-Risk")
+    df_results["Confidence"] = (probabilities * 100).round(1).astype(str) + "%"
+
+    st.success(f"Processed {len(df_results)} students.")
+
+    col1, col2 = st.columns(2)
+    col1.metric("At-Risk", int(predictions.sum()))
+    col2.metric("Not At-Risk", int((predictions == 0).sum()))
+
+    st.dataframe(
+        df_results[["Hours Studied", "Previous Scores",
+                    "Extracurricular Activities", "Attendance Rate", "Risk Label", "Confidence"]],
+        use_container_width=True
+    )
+
+    st.download_button(
+        label="Download Results CSV",
+        data=df_results.to_csv(index=False).encode("utf-8"),
+        file_name="coursecast_predictions.csv",
+        mime="text/csv"
+    )
